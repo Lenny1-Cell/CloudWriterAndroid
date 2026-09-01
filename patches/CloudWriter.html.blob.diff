@@ -1,0 +1,52 @@
+# Patch OPTIONNEL — Blob URLs → partage natif Android
+#
+# Ce patch remplace la routine de téléchargement de CloudWriter (qui crée un
+# <a download> depuis une Blob URL) par un pont vers @capacitor/filesystem
+# + @capacitor/share quand l'app tourne dans Capacitor. Sur navigateur web
+# classique, le comportement reste strictement identique (fallback natif).
+#
+# Applique-le UNIQUEMENT si tu constates que les exports DOCX / EPUB / PDF /
+# .ns ne se téléchargent pas correctement depuis l'APK. Sinon laisse le HTML
+# intact — le `setDownloadListener` natif de MainActivity.java suffit dans la
+# majorité des cas.
+#
+# Application :
+#   cd www
+#   git apply ../patches/CloudWriter.html.blob.diff
+#
+# Ou manuellement : cherche la fonction ~ligne 1438 qui contient
+#   const a=document.createElement('a');a.href=u;a.download=name;
+# et remplace le corps par l'équivalent ci-dessous.
+
+--- a/www/index.html
++++ b/www/index.html
+@@
+-  const a=document.createElement('a');a.href=u;a.download=name;
+-  document.body.appendChild(a);a.click();a.remove();
++  // Pont Capacitor : si on tourne dans l'app Android, écrire le fichier via
++  // Filesystem puis proposer Share. Sinon fallback web classique.
++  if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
++    (async () => {
++      try {
++        const { Filesystem, Directory } = window.Capacitor.Plugins;
++        const { Share } = window.Capacitor.Plugins;
++        const resp = await fetch(u);
++        const blob = await resp.blob();
++        const b64 = await new Promise((res) => {
++          const r = new FileReader();
++          r.onload = () => res(String(r.result).split(',')[1]);
++          r.readAsDataURL(blob);
++        });
++        const written = await Filesystem.writeFile({
++          path: name,
++          data: b64,
++          directory: Directory.Cache,
++          recursive: true
++        });
++        await Share.share({ title: name, url: written.uri, dialogTitle: 'Partager ' + name });
++      } catch (err) { console.error('Capacitor share failed', err); }
++    })();
++  } else {
++    const a=document.createElement('a');a.href=u;a.download=name;
++    document.body.appendChild(a);a.click();a.remove();
++  }

@@ -1,0 +1,24 @@
+{
+  "name": "cloudwriter-android",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wrapper Capacitor pour CloudWriter (traitement de texte pour romanciers, mono-fichier HTML).",
+  "scripts": {
+    "cap:sync": "cap sync android",
+    "cap:add": "cap add android",
+    "postadd:android": "bash scripts/patch-android.sh",
+    "build:apk": "cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/filesystem": "^6.0.1",
+    "@capacitor/share": "^6.0.2",
+    "@capacitor/splash-screen": "^6.0.2",
+    "@capacitor/status-bar": "^6.0.1",
+    "@capacitor/app": "^6.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}
