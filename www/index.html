@@ -894,7 +894,7 @@ body.dark .cmap-note{background:rgba(254,249,195,.9);color:#1a1d27}
     <div class="splash-foot">CloudWriter 3.0 &middot; © 2026</div>
   </div>
 </div>
-<input type="file" id="open-input" accept=".ns,application/json" style="display:none">
+<input type="file" id="open-input" accept="*/*" style="display:none">
 
 <!-- ============ APP ============ -->
 <div id="app" class="hidden">
@@ -1434,6 +1434,33 @@ function wordCount(html){
 function fmtNum(n){return (n||0).toLocaleString('fr-FR').replace(/,/g,'\u202f');}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function downloadBlob(blob,name){
+  // Pont Capacitor : sur Android/iOS natif, on écrit le fichier via
+  // @capacitor/filesystem puis on ouvre le partage natif via @capacitor/share.
+  // Ça permet de garder l'extension EXACTE (ex: .ns) et d'éviter que
+  // DownloadManager renomme en .txt. Sur navigateur web : fallback classique.
+  try {
+    if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+      const Filesystem = window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+      const Share = window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+      if (Filesystem && Share) {
+        const reader = new FileReader();
+        reader.onload = async function(){
+          try {
+            const b64 = String(reader.result).split(',')[1];
+            const written = await Filesystem.writeFile({
+              path: name,
+              data: b64,
+              directory: 'CACHE',
+              recursive: true
+            });
+            await Share.share({ title: name, url: written.uri, dialogTitle: 'Enregistrer ou partager ' + name });
+          } catch (err) { console.error('Capacitor share failed', err); alert('Échec de l\'enregistrement: ' + (err && err.message ? err.message : err)); }
+        };
+        reader.readAsDataURL(blob);
+        return;
+      }
+    }
+  } catch (e) { console.error(e); }
   const u=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=u;a.download=name;
   document.body.appendChild(a);a.click();a.remove();
@@ -3410,7 +3437,7 @@ function renderTimeline(){
   const target = project.targetWords||1;
   const pct = Math.min(100, (totalW/target)*100);
   wrap.appendChild(el('div',{class:'tl-title'},'Progression du roman'));
-  wrap.appendChild(el('div',{class:'tl-info'},`${fmtNum(totalW)} mots écrits sur ${fmtNum(target)} — ${pct.toFixed(1)}%`));
+  wrap.appendChild(el('div',{class:'tl-info'},`${fmtNum(totalW)} mots ��crits sur ${fmtNum(target)} — ${pct.toFixed(1)}%`));
   const bar = el('div',{class:'tl-bar-wrap'});
   const track = el('div',{class:'tl-bar'});
   const prog = el('div',{class:'tl-progress'}); prog.style.width = pct+'%';
